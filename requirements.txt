@@ -1,3 +1,4 @@
 streamlit
 pydub
 ffmpeg-python
+audioop-lts
