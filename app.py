@@ -1,3 +1,19 @@
+import sys
+try:
+    import audioop
+except ImportError:
+    try:
+        import audioop_lts as audioop
+        sys.modules["audioop"] = audioop
+    except ImportError:
+        pass
+
+# --- AB ISKE BAAD TERA PURA PURANA CODE SHURU HOGA ---
+import streamlit as st
+import os
+from pydub import AudioSegment
+import tempfile
+# ... baaki ka sara code jo pehle tha ...
 import streamlit as st
 import os
 from pydub import AudioSegment
