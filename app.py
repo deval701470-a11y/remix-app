@@ -10,188 +10,302 @@ except ImportError:
 
 import streamlit as st
 import os
+import struct
+import math
+import random
 from pydub import AudioSegment
 from pydub.effects import low_pass_filter, high_pass_filter
+from pydub.generators import WhiteNoise
 import tempfile
-import io
 
 st.set_page_config(
-    page_title="Auto Remix Maker",
-    page_icon="🎵",
+    page_title="Lo-fi Music Maker",
+    page_icon="🎧",
     layout="centered"
 )
 
 st.markdown("""
     <style>
     .stApp {
-        background-color: #0e0e0e;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%);
     }
     .stButton>button {
-        background-color: #ff4b4b;
+        background: linear-gradient(90deg, #6a0dad, #ff6b6b);
         color: white;
-        border-radius: 20px;
+        border-radius: 25px;
         padding: 15px 40px;
         font-size: 18px;
         width: 100%;
         border: none;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background: linear-gradient(90deg, #ff6b6b, #6a0dad);
     }
     .stProgress > div > div {
-        background-color: #ff4b4b;
+        background: linear-gradient(90deg, #6a0dad, #ff6b6b);
+    }
+    h1 {
+        color: #ff6b6b !important;
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("# 🎵 Auto Remix Maker")
-st.markdown("#### Song upload karo → Style chuno → Remix ready!")
-st.markdown("##### 🎧 Full song remix - No cutting!")
+st.markdown("# 🎧 Lo-fi Music Maker")
+st.markdown("##### ✨ Koi bhi song ko ASLI Lo-fi mein badlo - Professional Quality!")
 st.divider()
+
+
+# ===== VINYL CRACKLE GENERATOR =====
+def generate_vinyl_crackle(duration_ms, volume=-25):
+    """
+    Purane vinyl record jaisi crackle sound banata hai
+    - Random clicks aur pops
+    - Continuous soft hiss
+    - Authentic vintage feel
+    """
+    sample_rate = 44100
+    num_samples = int(sample_rate * duration_ms / 1000)
+
+    samples = []
+    for i in range(num_samples):
+        # Base hiss (bohot halka)
+        hiss = random.uniform(-0.003, 0.003)
+
+        # Random clicks (thode thode gap pe)
+        click = 0
+        if random.random() < 0.0008:  # Rare clicks
+            click = random.uniform(-0.15, 0.15)
+
+        # Small pops
+        pop = 0
+        if random.random() < 0.0003:  # Very rare pops
+            pop = random.uniform(-0.3, 0.3)
+
+        # Combine
+        sample = hiss + click + pop
+        sample = max(-1, min(1, sample))
+        samples.append(sample)
+
+    # Convert to bytes
+    raw_data = b""
+    for s in samples:
+        packed = struct.pack("<h", int(s * 32767))
+        raw_data += packed
+
+    crackle = AudioSegment(
+        data=raw_data,
+        sample_width=2,
+        frame_rate=sample_rate,
+        channels=1
+    )
+
+    # Volume adjust
+    crackle = crackle + volume
+
+    # Make stereo
+    crackle = crackle.set_channels(2)
+
+    return crackle
+
+
+# ===== RAIN SOUND GENERATOR =====
+def generate_rain_sound(duration_ms, volume=-22):
+    """
+    Baarish jaisi soothing sound banata hai
+    - Filtered white noise
+    - Soft pattering effect
+    - Calming background
+    """
+    sample_rate = 44100
+    num_samples = int(sample_rate * duration_ms / 1000)
+
+    samples = []
+    prev_sample = 0
+
+    for i in range(num_samples):
+        # Brown noise (softer than white noise)
+        white = random.uniform(-1, 1)
+        brown = (prev_sample + (0.02 * white)) / 1.02
+        prev_sample = brown
+
+        # Rain drops (random sharp sounds)
+        drop = 0
+        if random.random() < 0.001:
+            drop = random.uniform(0.05, 0.2) * math.sin(
+                2 * math.pi * random.uniform(2000, 6000) * i / sample_rate
+            )
+
+        sample = brown * 0.5 + drop
+        sample = max(-1, min(1, sample))
+        samples.append(sample)
+
+    raw_data = b""
+    for s in samples:
+        packed = struct.pack("<h", int(s * 32767))
+        raw_data += packed
+
+    rain = AudioSegment(
+        data=raw_data,
+        sample_width=2,
+        frame_rate=sample_rate,
+        channels=1
+    )
+
+    # Low pass filter for realistic rain
+    rain = low_pass_filter(rain, 4000)
+
+    # Volume
+    rain = rain + volume
+
+    # Stereo
+    rain = rain.set_channels(2)
+
+    return rain
+
+
+# ===== MAIN LO-FI MAKER =====
+def make_professional_lofi(song, add_vinyl, add_rain, vinyl_vol, rain_vol):
+    """
+    PROFESSIONAL Lo-fi Production:
+    1. Slow down + Pitch down
+    2. Heavy muffled filter
+    3. Warm bass boost
+    4. Remove harsh frequencies
+    5. Add reverb/echo
+    6. Vinyl crackle (optional)
+    7. Rain sound (optional)
+    8. Soft volume
+    9. Smooth fade in/out
+    """
+
+    duration_ms = len(song)
+
+    # ===== STEP 1: Slow + Pitch Down =====
+    # 0.82x speed = perfect lo-fi feel
+    new_frame_rate = int(song.frame_rate * 0.82)
+    lofi = song._spawn(song.raw_data, overrides={
+        "frame_rate": new_frame_rate
+    }).set_frame_rate(song.frame_rate)
+
+    new_duration = len(lofi)
+
+    # ===== STEP 2: Heavy Muffled Sound =====
+    # Double low pass for extra warmth
+    lofi = low_pass_filter(lofi, 2500)
+    lofi = low_pass_filter(lofi, 3500)
+
+    # ===== STEP 3: Warm Bass Boost =====
+    bass = low_pass_filter(lofi, 250) + 4
+    sub_bass = low_pass_filter(lofi, 100) + 2
+    lofi = lofi.overlay(bass).overlay(sub_bass)
+
+    # ===== STEP 4: Remove Harsh Frequencies =====
+    lofi = high_pass_filter(lofi, 60)
+
+    # ===== STEP 5: Reverb (Dreamy Echo) =====
+    echo1 = lofi - 8
+    echo2 = lofi - 14
+    echo3 = lofi - 20
+    lofi = lofi.overlay(echo1, position=250)
+    lofi = lofi.overlay(echo2, position=500)
+    lofi = lofi.overlay(echo3, position=800)
+
+    # ===== STEP 6: Vinyl Crackle =====
+    if add_vinyl:
+        crackle = generate_vinyl_crackle(new_duration, volume=vinyl_vol)
+        # Match length
+        if len(crackle) < new_duration:
+            times = (new_duration // len(crackle)) + 1
+            crackle = crackle * times
+        crackle = crackle[:new_duration]
+        lofi = lofi.overlay(crackle)
+
+    # ===== STEP 7: Rain Sound =====
+    if add_rain:
+        rain = generate_rain_sound(new_duration, volume=rain_vol)
+        if len(rain) < new_duration:
+            times = (new_duration // len(rain)) + 1
+            rain = rain * times
+        rain = rain[:new_duration]
+        lofi = lofi.overlay(rain)
+
+    # ===== STEP 8: Soft Volume =====
+    lofi = lofi - 3
+
+    # ===== STEP 9: Smooth Fade =====
+    fade_in_duration = min(5000, new_duration // 4)
+    fade_out_duration = min(6000, new_duration // 3)
+    lofi = lofi.fade_in(fade_in_duration).fade_out(fade_out_duration)
+
+    return lofi
+
+
+# ===== UI =====
 
 # Upload
 uploaded_file = st.file_uploader(
-    "📁 MP3 ya WAV song upload karo",
+    "📁 Song Upload Karo (MP3 / WAV)",
     type=["mp3", "wav"]
 )
 
 if uploaded_file is not None:
     file_size = len(uploaded_file.getvalue()) / (1024 * 1024)
-    st.info(f"📄 File: {uploaded_file.name} | Size: {file_size:.1f} MB")
+    st.info(f"📄 {uploaded_file.name} | {file_size:.1f} MB")
 
 st.divider()
 
-# Remix Style
-st.markdown("### 🎚️ Remix Style Chuno")
-remix_choice = st.selectbox(
-    "Kaisa remix chahiye?",
-    [
-        "🔥 EDM Remix",
-        "😴 Lo-fi Remix",
-        "💣 Bass Boosted",
-        "🌊 Slowed + Reverb",
-        "🎤 Trap Remix",
-        "🎸 Rock Remix"
-    ]
-)
+# Lo-fi Options
+st.markdown("### 🎛️ Lo-fi Settings")
 
-# Settings
 col1, col2 = st.columns(2)
+
 with col1:
-    volume_boost = st.slider("🔊 Volume", -10, 10, 0)
+    add_vinyl = st.toggle("🎵 Vinyl Crackle", value=True,
+                           help="Purane record jaisi crackling awaaz")
+
 with col2:
-    speed = st.slider("⚡ Speed", 0.7, 1.5, 1.0, 0.05)
+    add_rain = st.toggle("🌧️ Rain Sound", value=True,
+                          help="Baarish ki soothing awaaz")
+
+# Volume controls for effects
+if add_vinyl or add_rain:
+    st.markdown("#### 🔊 Effects Volume")
+    cols = st.columns(2)
+    if add_vinyl:
+        with cols[0]:
+            vinyl_vol = st.slider("Vinyl Volume", -35, -15, -25,
+                                   help="Zyada negative = halka")
+    else:
+        vinyl_vol = -25
+
+    if add_rain:
+        with cols[1]:
+            rain_vol = st.slider("Rain Volume", -30, -12, -20,
+                                  help="Zyada negative = halka")
+    else:
+        rain_vol = -20
+else:
+    vinyl_vol = -25
+    rain_vol = -20
 
 st.divider()
 
+# Lo-fi info
+st.markdown("### 🎧 Ye Sab AUTOMATIC Hoga:")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("```\n✅ Slow + Pitch Down\n✅ Muffled Sound\n✅ Warm Bass\n```")
+with col2:
+    st.markdown("```\n✅ Dreamy Reverb\n✅ Soft Volume\n✅ Smooth Fade\n```")
+with col3:
+    st.markdown("```\n✅ Vinyl Crackle\n✅ Rain Sound\n✅ 320kbps Export\n```")
 
-# ===== PROPER LO-FI FUNCTION (FAST + HIGH QUALITY) =====
-def make_lofi(song, speed_factor, vol_boost):
-    """
-    Proper Lo-fi remix:
-    1. Pitch down (frame rate change - FAST method)
-    2. Low pass filter (muffled sound)
-    3. Warmth add (slight bass boost)
-    4. Soft volume
-    5. Fade in/out
-    """
-    # Step 1: Slow down + Pitch down using frame rate trick (SUPER FAST!)
-    # Ye method speedup() se 10x fast hai
-    new_frame_rate = int(song.frame_rate * speed_factor)
-    slow_song = song._spawn(song.raw_data, overrides={
-        "frame_rate": new_frame_rate
-    }).set_frame_rate(song.frame_rate)
+st.divider()
 
-    # Step 2: Low pass filter - muffled/warm sound (Lo-fi signature)
-    lofi = low_pass_filter(slow_song, 2500)
-
-    # Step 3: Warmth - slight bass boost
-    bass = low_pass_filter(slow_song, 300) + 3
-    lofi = lofi.overlay(bass)
-
-    # Step 4: High pass - remove rumble
-    lofi = high_pass_filter(lofi, 80)
-
-    # Step 5: Volume adjust (Lo-fi is soft)
-    lofi = lofi + (-2 + vol_boost)
-
-    # Step 6: Smooth fade
-    lofi = lofi.fade_in(3000).fade_out(4000)
-
-    return lofi
-
-
-# ===== EDM FUNCTION =====
-def make_edm(song, speed_factor, vol_boost):
-    new_frame_rate = int(song.frame_rate * speed_factor)
-    fast_song = song._spawn(song.raw_data, overrides={
-        "frame_rate": new_frame_rate
-    }).set_frame_rate(song.frame_rate)
-
-    result = fast_song + (6 + vol_boost)
-    result = result.fade_in(1000).fade_out(2000)
-    return result
-
-
-# ===== BASS BOOSTED FUNCTION =====
-def make_bass_boosted(song, vol_boost):
-    bass_layer = low_pass_filter(song, 200) + 10
-    mid_layer = low_pass_filter(song, 500) + 3
-    result = song.overlay(bass_layer).overlay(mid_layer)
-    result = result + vol_boost
-    result = result.fade_in(1000).fade_out(2000)
-    return result
-
-
-# ===== SLOWED + REVERB FUNCTION =====
-def make_slowed_reverb(song, speed_factor, vol_boost):
-    # Slow down
-    new_frame_rate = int(song.frame_rate * speed_factor)
-    slow_song = song._spawn(song.raw_data, overrides={
-        "frame_rate": new_frame_rate
-    }).set_frame_rate(song.frame_rate)
-
-    # Reverb effect (echo layers)
-    echo1 = slow_song - 7
-    echo2 = slow_song - 12
-    echo3 = slow_song - 18
-
-    result = slow_song.overlay(echo1, position=200)
-    result = result.overlay(echo2, position=450)
-    result = result.overlay(echo3, position=700)
-
-    result = result + vol_boost
-    result = result.fade_in(3000).fade_out(4000)
-    return result
-
-
-# ===== TRAP FUNCTION =====
-def make_trap(song, speed_factor, vol_boost):
-    new_frame_rate = int(song.frame_rate * speed_factor)
-    trap_song = song._spawn(song.raw_data, overrides={
-        "frame_rate": new_frame_rate
-    }).set_frame_rate(song.frame_rate)
-
-    bass_layer = low_pass_filter(trap_song, 200) + 10
-    result = trap_song.overlay(bass_layer)
-    result = result + vol_boost
-    result = result.fade_in(1000).fade_out(2000)
-    return result
-
-
-# ===== ROCK FUNCTION =====
-def make_rock(song, speed_factor, vol_boost):
-    new_frame_rate = int(song.frame_rate * speed_factor)
-    rock_song = song._spawn(song.raw_data, overrides={
-        "frame_rate": new_frame_rate
-    }).set_frame_rate(song.frame_rate)
-
-    treble = high_pass_filter(rock_song, 800) + 5
-    result = rock_song.overlay(treble)
-    result = result + vol_boost
-    result = result.fade_in(1000).fade_out(2000)
-    return result
-
-
-# ===== GENERATE BUTTON =====
-if st.button("🚀 Remix Banao!"):
+# Generate
+if st.button("🎧 Lo-fi Banao!"):
     if uploaded_file is None:
         st.error("❌ Pehle song upload karo!")
     else:
@@ -203,85 +317,110 @@ if st.button("🚀 Remix Banao!"):
 
                 # Load
                 status.text("📥 Song load ho raha hai...")
-                progress.progress(10)
+                progress.progress(8)
 
                 input_path = os.path.join(tmp, "input.mp3")
                 with open(input_path, "wb") as f:
                     f.write(uploaded_file.getvalue())
 
-                status.text("🎵 Audio process ho raha hai...")
-                progress.progress(25)
+                status.text("🎵 Audio read ho raha hai...")
+                progress.progress(15)
 
                 song = AudioSegment.from_file(input_path)
 
-                song_length_sec = len(song) // 1000
-                song_min = song_length_sec // 60
-                song_sec = song_length_sec % 60
-                status.text(f"🎵 Song: {song_min}m {song_sec}s | Remix apply ho raha hai...")
+                song_len = len(song) // 1000
+                st.info(f"🎵 Original: {song_len//60}m {song_len%60}s")
+
+                # Process
+                status.text("🎧 Lo-fi magic apply ho raha hai...")
+                progress.progress(25)
+
+                status.text("🎚️ Slow + Pitch Down...")
+                progress.progress(30)
+
+                status.text("🔇 Muffled warm sound...")
                 progress.progress(40)
 
-                # Apply remix
-                result = None
+                status.text("🎵 Bass boost + Reverb...")
+                progress.progress(50)
 
-                if "EDM" in remix_choice:
-                    result = make_edm(song, 1.2 * speed, volume_boost)
-
-                elif "Lo-fi" in remix_choice:
-                    result = make_lofi(song, 0.85 * speed, volume_boost)
-
-                elif "Bass" in remix_choice:
-                    result = make_bass_boosted(song, volume_boost)
-
-                elif "Slowed" in remix_choice:
-                    result = make_slowed_reverb(song, 0.78 * speed, volume_boost)
-
-                elif "Trap" in remix_choice:
-                    result = make_trap(song, 0.95 * speed, volume_boost)
-
-                elif "Rock" in remix_choice:
-                    result = make_rock(song, 1.05 * speed, volume_boost)
+                # MAKE LO-FI
+                result = make_professional_lofi(
+                    song,
+                    add_vinyl=add_vinyl,
+                    add_rain=add_rain,
+                    vinyl_vol=vinyl_vol,
+                    rain_vol=rain_vol
+                )
 
                 progress.progress(70)
-                status.text("💾 Remix save ho raha hai (320kbps)...")
+
+                if add_vinyl:
+                    status.text("🎵 Vinyl crackle add ho raha hai...")
+                    progress.progress(80)
+
+                if add_rain:
+                    status.text("🌧️ Rain sound mix ho raha hai...")
+                    progress.progress(85)
 
                 # Export
-                output_path = os.path.join(tmp, "remix.mp3")
+                status.text("💾 Lo-fi save ho raha hai (320kbps)...")
+                progress.progress(90)
+
+                output_path = os.path.join(tmp, "lofi_output.mp3")
                 result.export(output_path, format="mp3", bitrate="320k")
 
                 with open(output_path, "rb") as f:
-                    remix_data = f.read()
+                    lofi_data = f.read()
 
                 progress.progress(100)
                 status.text("✅ Done!")
 
                 # Success
-                st.success("🎉 Tera FULL Remix Ready Hai!")
+                st.success("🎧 Tera Professional Lo-fi Ready Hai!")
                 st.balloons()
 
                 # Info
-                remix_length_sec = len(result) // 1000
-                remix_min = remix_length_sec // 60
-                remix_sec = remix_length_sec % 60
-                remix_size = len(remix_data) / (1024 * 1024)
+                r_len = len(result) // 1000
+                r_size = len(lofi_data) / (1024 * 1024)
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("⏱️ Length", f"{remix_min}m {remix_sec}s")
+                    st.metric("⏱️ Length", f"{r_len//60}m {r_len%60}s")
                 with col2:
-                    st.metric("📦 Size", f"{remix_size:.1f} MB")
+                    st.metric("📦 Size", f"{r_size:.1f} MB")
                 with col3:
                     st.metric("🎵 Quality", "320kbps")
+                with col4:
+                    effects = []
+                    if add_vinyl:
+                        effects.append("Vinyl")
+                    if add_rain:
+                        effects.append("Rain")
+                    st.metric("🎛️ Effects", "+".join(effects) if effects else "None")
 
-                st.audio(remix_data, format="audio/mp3")
+                # Player
+                st.audio(lofi_data, format="audio/mp3")
 
-                name = uploaded_file.name.replace(".mp3", "").replace(".wav", "")
+                # Download
+                name = uploaded_file.name.replace(".mp3","").replace(".wav","")
                 st.download_button(
-                    "⬇️ Full Remix Download Karo",
-                    remix_data,
-                    file_name=f"{name}_lofi_remix.mp3",
+                    "⬇️ Lo-fi Download Karo",
+                    lofi_data,
+                    file_name=f"{name}_lofi.mp3",
                     mime="audio/mp3"
                 )
 
+                # Tips
+                st.divider()
+                st.markdown("### 💡 YouTube Upload Tips:")
+                st.markdown("""
+                - 🖼️ **Thumbnail:** Anime/Rain wallpaper lagao
+                - 🔁 **Loop:** CapCut mein 10 baar loop karke 10min video banao
+                - 📝 **Title:** "Song Name - Lo-fi Version [Chill/Study/Sleep]"
+                - 🏷️ **Tags:** lofi, chill, study music, rain, relax
+                """)
+
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            st.info("💡 MP3 file use karo | File 15MB se chhoti rakho")
+            st.info("💡 MP3 use karo | 15MB se chhoti file rakho")
